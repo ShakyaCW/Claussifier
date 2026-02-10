@@ -1,0 +1,39 @@
+{
+  "model_name": "bert-base-uncased",
+  "num_labels": 8,
+  "max_length": 512,
+  "batch_size": 16,
+  "num_epochs": 5,
+  "learning_rate": 2e-05,
+  "weight_decay": 0.01,
+  "warmup_steps": 500,
+  "max_grad_norm": 1.0,
+  "eval_every_n_steps": 100,
+  "save_best_model": true,
+  "device": "cuda",
+  "seed": 42,
+  "label_names": [
+    "Limitation of liability",
+    "Unilateral termination",
+    "Unilateral change",
+    "Content removal",
+    "Contract by using",
+    "Choice of law",
+    "Jurisdiction",
+    "Arbitration"
+  ],
+  "class_weights": [
+    3.619999885559082,
+    4.96999979019165,
+    5.670000076293945,
+    9.470000267028809,
+    9.100000381469727,
+    17.729999542236328,
+    20.34000015258789,
+    24.700000762939453
+  ],
+  "best_val_f1": 0.6454764254880568,
+  "test_macro_f1": 0.6857660322785663,
+  "test_micro_f1": 0.6926605504587156,
+  "training_duration": "0:49:35.950208"
+}
