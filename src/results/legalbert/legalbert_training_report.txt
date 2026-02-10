@@ -1,0 +1,120 @@
+
+================================================================================
+CLAUSSIFIER - LEGAL-BERT RISK DETECTOR TRAINING REPORT
+================================================================================
+
+DATE: 2026-02-07 16:50:45
+TRAINING DURATION: 0:45:27.552068
+
+================================================================================
+1. CONFIGURATION
+================================================================================
+Model: nlpaueb/legal-bert-base-uncased
+Number of labels: 8
+Max sequence length: 512
+Batch size: 16
+Learning rate: 2e-05
+Number of epochs: 5
+Device: cuda
+
+================================================================================
+2. DATASET
+================================================================================
+Training examples: 5532
+Validation examples: 2275
+Test examples: 1607
+Total examples: 9414
+
+================================================================================
+3. TRAINING RESULTS
+================================================================================
+Best Validation F1: 0.7293
+Final Train Loss: 0.0390
+Final Val Loss: 0.0952
+
+================================================================================
+4. TEST SET PERFORMANCE
+================================================================================
+Test Loss: 0.0712
+
+Macro Metrics:
+  F1:        0.7863
+  Precision: 0.7316
+  Recall:    0.8634
+
+Micro Metrics:
+  F1:        0.7685
+  Precision: 0.7091
+  Recall:    0.8387
+
+================================================================================
+5. PER-CLASS PERFORMANCE (TEST SET)
+================================================================================
+
+1. Limitation of liability
+   F1:        0.6897
+   Precision: 0.6122
+   Recall:    0.7895
+
+2. Unilateral termination
+   F1:        0.8395
+   Precision: 0.7907
+   Recall:    0.8947
+
+3. Unilateral change
+   F1:        0.6747
+   Precision: 0.6222
+   Recall:    0.7368
+
+4. Content removal
+   F1:        0.7273
+   Precision: 0.6000
+   Recall:    0.9231
+
+5. Contract by using
+   F1:        0.8000
+   Precision: 0.8182
+   Recall:    0.7826
+
+6. Choice of law
+   F1:        0.9231
+   Precision: 0.9231
+   Recall:    0.9231
+
+7. Jurisdiction
+   F1:        0.9697
+   Precision: 0.9412
+   Recall:    1.0000
+
+8. Arbitration
+   F1:        0.6667
+   Precision: 0.5455
+   Recall:    0.8571
+
+================================================================================
+6. SUCCESS CRITERIA
+================================================================================
+Target Macro F1 ≥ 0.65: ✓ PASS (0.7863)
+Target Precision ≥ 0.70: ✓ PASS (0.7316)
+Target Recall ≥ 0.60: ✓ PASS (0.8634)
+
+================================================================================
+7. KEY INSIGHTS
+================================================================================
+- Model successfully trained on 5532 examples
+- Class-weighted loss function helped handle imbalance
+- Legal-BERT pre-training on legal documents may improve performance
+- Model ready for comparison with BERT-base
+
+================================================================================
+8. FILES GENERATED
+================================================================================
+- Model checkpoint: /content/drive/MyDrive/Claussifier/models/legalbert_model/best_model_*.pt
+- Final model: /content/drive/MyDrive/Claussifier/models/legalbert_model
+- Training curves: /content/drive/MyDrive/Claussifier/results/legalbert/training_curves.png
+- Per-class performance: /content/drive/MyDrive/Claussifier/results/legalbert/per_class_performance.csv
+- This report: /content/drive/MyDrive/Claussifier/results/legalbert/legalbert_training_report.txt
+
+================================================================================
+END OF REPORT
+================================================================================
