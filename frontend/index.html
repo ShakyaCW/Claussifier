@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claussifier - Legal Clause Risk Assessment</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⚖️</span>
+                <h1>Claussifier</h1>
+            </div>
+            <p class="subtitle">AI-Powered Legal Clause Risk Assessment</p>
+        </header>
+
+        <!-- Model Selector Section -->
+        <div class="model-selector-section" style="margin: 25px 0; padding: 20px; background: linear-gradient(135deg, rgba(236, 201, 75, 0.15), rgba(236, 201, 75, 0.08)); border-radius: 16px; border: 2px solid #ecc94b; box-shadow: 0 4px 15px rgba(236, 201, 75, 0.2);">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <label for="modelSelect" style="display: block; font-weight: bold; margin-bottom: 12px; color: #ecc94b; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">
+                    AI Model Selection
+                </label>
+                <select id="modelSelect" style="padding: 12px 24px; border-radius: 10px; border: 2px solid #ecc94b; background: #1e2936; color: white; font-size: 16px; cursor: pointer; font-weight: 600; min-width: 300px; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    <option value="bert_final_model" style="background: #1e2936; color: white;">📚 BERT-base-uncased</option>
+                    <option value="legalbert_final_model" style="background: #1e2936; color: white;">⚖️ Legal-BERT</option>
+                    <option value="legalbert_with_augmentation_final_model" selected style="background: #1e2936; color: white;">🚀 Legal-BERT + Negation (Recommended)</option>
+                </select>
+            </div>
+            
+            <!-- Model Info -->
+            <div class="model-info" style="text-align: center; padding: 12px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; border: 1px solid rgba(236, 201, 75, 0.3);">
+                <p class="info-text" id="modelInfo" style="margin: 0; color: #e5e7eb; font-size: 14px; font-weight: 500;">
+                    <strong style="color: #ecc94b;">Model:</strong> <span id="modelName">Loading...</span> | 
+                    <strong style="color: #ecc94b;">F1 Score:</strong> <span id="modelF1">--</span>% | 
+                    <strong style="color: #ecc94b;">Precision:</strong> <span id="modelPrecision">--</span>%
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <h2>Analyze Your Clause</h2>
+                <p class="description">
+                    Paste any legal clause below to identify potential risks using our BERT-based AI model.
+                </p>
+                
+                <textarea 
+                    id="clauseInput" 
+                    class="clause-input" 
+                    placeholder="Example: We may terminate your account at any time without prior notice or reason."
+                    rows="6"
+                ></textarea>
+                
+                <div class="button-group">
+                    <button id="analyzeBtn" class="btn btn-primary">
+                        <span class="btn-icon">🔍</span>
+                        Analyze Clause
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary">
+                        <span class="btn-icon">🗑️</span>
+                        Clear
+                    </button>
+                </div>
+
+                <!-- Example Clauses -->
+                <div class="examples">
+                    <p class="examples-label">Try these examples:</p>
+                    <div class="example-buttons">
+                        <button class="example-btn" data-clause="We may terminate your account at any time without prior notice or reason.">
+                            Termination
+                        </button>
+                        <button class="example-btn" data-clause="We are not liable for any damages, losses, or expenses arising from your use of this service.">
+                            Liability
+                        </button>
+                        <button class="example-btn" data-clause="All disputes shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association.">
+                            Arbitration
+                        </button>
+                        <button class="example-btn" data-clause="We reserve the right to modify these terms at any time without notice.">
+                            Changes
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyzing clause...</p>
+            </div>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section" style="display: none;">
+                <h2>Analysis Results</h2>
+                
+                <!-- Risk Status -->
+                <div id="riskStatus" class="risk-status">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <!-- Risks Detected -->
+                <div id="risksDetected" class="risks-container">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <!-- Safe Categories -->
+                <div id="safeCategories" class="safe-container">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message" style="display: none;">
+                <!-- Populated by JavaScript -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by BERT | Trained on LexGLUE Dataset | 
+                <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
