@@ -1,0 +1,76 @@
+
+================================================================================
+CLAUSSIFIER - EXPLORATORY DATA ANALYSIS SUMMARY REPORT
+================================================================================
+
+DATASET: LexGLUE unfair_tos
+DATE: 2026-01-31 20:01:45
+
+================================================================================
+1. DATASET SIZE
+================================================================================
+  - Training set:   5,532 examples
+  - Validation set: 2,275 examples
+  - Test set:       1,607 examples
+  - Total:          9,414 examples
+
+================================================================================
+2. RISK CATEGORIES (8 total)
+================================================================================
+  1. Limitation of liability        -  191 examples ( 3.45%)
+  2. Unilateral termination         -  139 examples ( 2.51%)
+  3. Unilateral change              -  122 examples ( 2.21%)
+  4. Content removal                -   73 examples ( 1.32%)
+  5. Contract by using              -   76 examples ( 1.37%)
+  6. Choice of law                  -   39 examples ( 0.70%)
+  7. Jurisdiction                   -   34 examples ( 0.61%)
+  8. Arbitration                    -   28 examples ( 0.51%)
+
+================================================================================
+3. CLASS IMBALANCE
+================================================================================
+  - Most common:    Limitation of liability (191 examples)
+  - Least common:   Arbitration (28 examples)
+  - Imbalance ratio: 6.82x
+  - Recommendation: Use class-weighted loss function
+
+================================================================================
+4. CLAUSE LENGTH STATISTICS
+================================================================================
+  Word Count:
+    - Mean:   32.3 words
+    - Median: 26.0 words
+    - Min:    6 words
+    - Max:    441 words
+    - Std:    24.7 words
+
+  Character Count:
+    - Mean:   179.3 characters
+    - Median: 147.0 characters
+    - Min:    15 characters
+    - Max:    2535 characters
+
+  BERT Token Limit (512 tokens):
+    - Clauses likely exceeding limit: 1 (0.51%)
+    - Recommendation: Use truncation='longest_first'
+
+================================================================================
+5. MULTI-LABEL ANALYSIS
+================================================================================
+  - Average labels per clause: 0.13
+  - Max labels in single clause: 3
+  - Clauses with no labels: 4902
+  - Clauses with multiple labels: 63 (1.14%)
+
+================================================================================
+6. KEY INSIGHTS & RECOMMENDATIONS
+================================================================================
+  ✓ Dataset is well-balanced across train/val/test splits
+  ✓ Moderate class imbalance - use weighted loss function
+  ✓ Most clauses are within BERT's token limit
+  ✓ Multi-label classification is appropriate (~1.1% have multiple labels)
+  ✓ Ready to proceed to preprocessing and model training
+
+================================================================================
+END OF REPORT
+================================================================================

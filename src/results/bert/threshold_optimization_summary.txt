@@ -1,0 +1,38 @@
+
+================================================================================
+THRESHOLD OPTIMIZATION SUMMARY
+================================================================================
+
+BASELINE PERFORMANCE (Threshold = 0.5 for all classes)
+  Macro F1:        0.6858
+  Macro Precision: 0.6028
+  Macro Recall:    0.8382
+
+OPTIMIZED PERFORMANCE (Class-specific thresholds)
+  Macro F1:        0.7616
+  Macro Precision: 0.7203
+  Macro Recall:    0.8349
+
+IMPROVEMENTS
+  Macro F1:        +0.0758 (+11.06%)
+  Macro Precision: +0.1175 (+19.49%)
+  Macro Recall:    -0.0033 (-0.39%)
+
+OPTIMAL THRESHOLDS
+  1. Limitation of liability: 0.7
+  2. Unilateral termination: 0.65
+  3. Unilateral change: 0.7
+  4. Content removal: 0.7
+  5. Contract by using: 0.65
+  6. Choice of law: 0.65
+  7. Jurisdiction: 0.7
+  8. Arbitration: 0.7
+
+================================================================================
+FILES GENERATED
+  - /content/drive/MyDrive/Claussifier/results/threshold_optimization_curves.png
+  - /content/drive/MyDrive/Claussifier/results/threshold_optimization_comparison.png
+  - /content/drive/MyDrive/Claussifier/results/threshold_optimization_comparison.csv
+  - /content/drive/MyDrive/Claussifier/results/threshold_optimization_per_class.csv
+  - /content/drive/MyDrive/Claussifier/results/optimal_thresholds.json
+================================================================================
