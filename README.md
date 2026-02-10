@@ -289,7 +289,7 @@ The project includes Jupyter notebooks for the complete training pipeline:
 
 6. **Final Model** (`notebooks/05_legalbert_with_augmented_data.ipynb`)
    - Train Legal-BERT with augmented data
-   - Best performing model (85-90% F1 score)
+   - Current model in production
 
 ### Running in Google Colab
 
@@ -307,9 +307,9 @@ All notebooks are designed to run in Google Colab with GPU acceleration:
 
 | Model | F1 Score | Precision | Recall |
 |-------|----------|-----------|--------|
-| BERT-base | ~82% | ~83% | ~81% |
-| Legal-BERT | ~87% | ~88% | ~86% |
-| Legal-BERT + Augmentation ⭐ | ~90% | ~91% | ~89% |
+| BERT-base (with optimized thresholds) | 76.2% | 72.0% | 83.5% |
+| Legal-BERT | 78.6% | 73.2% | 86.3% |
+| Legal-BERT + Augmentation | 70.5% | 60.4% | 86.3% |
 
 *Macro-averaged metrics on test set*
 
