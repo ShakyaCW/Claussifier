@@ -246,7 +246,7 @@ async def get_model_info():
         elif current_model_name == "legalbert_final_model":
             report_path = Path("src/results/legalbert/legalbert_training_report.txt")
         else:
-            report_path = Path("src/results/stage1_training_report.txt")
+            report_path = Path("src/results/bert/stage1_training_report.txt")
         
         if report_path.exists():
             try:
@@ -267,7 +267,8 @@ async def get_model_info():
     
     return {
         "status": "success",
-        "data": model_info
+        "data": model_info,
+        "current_model": current_model_name
     }
 
 # Switch model endpoint

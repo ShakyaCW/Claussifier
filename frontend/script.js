@@ -80,6 +80,11 @@ async function loadModelInfo() {
             document.getElementById('modelName').textContent = data.model_name || 'Legal-BERT Risk Detector';
             document.getElementById('modelF1').textContent = data.f1_score || '--';
             document.getElementById('modelPrecision').textContent = data.precision || '--';
+            
+            // Sync dropdown with backend's current model
+            if (result.current_model) {
+                modelSelect.value = result.current_model;
+            }
         }
     } catch (error) {
         console.error('Failed to load model info:', error);
