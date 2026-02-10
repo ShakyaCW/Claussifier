@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToS Risk Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 350px;
+            min-height: 400px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #e94560;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .risk-summary {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .risk-level {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .risk-level h2 {
+            font-size: 18px;
+        }
+
+        .risk-badge {
+            font-size: 32px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-card.high {
+            border-left: 4px solid #ff4444;
+        }
+
+        .stat-card.medium {
+            border-left: 4px solid #ffaa00;
+        }
+
+        .stat-card.low {
+            border-left: 4px solid #44ff44;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        .risk-list {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .risk-list h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #e94560;
+        }
+
+        .risk-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .risk-name {
+            font-size: 13px;
+        }
+
+        .risk-count {
+            background: #e94560;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .safe-list {
+            background: rgba(68, 255, 68, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .safe-list h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #44ff44;
+        }
+
+        .safe-item {
+            font-size: 12px;
+            padding: 5px 0;
+            color: #aaa;
+        }
+
+        .safe-item::before {
+            content: "✓ ";
+            color: #44ff44;
+            font-weight: bold;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #d63447 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #e94560;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #aaa;
+        }
+
+        .no-data p {
+            margin-bottom: 15px;
+        }
+
+        .footer {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            text-align: center;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚖️ ToS Risk Detector</h1>
+        <p>AI-Powered Contract Analysis</p>
+    </div>
+
+    <div class="content" id="content">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing page...</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        Powered by Legal-BERT | <a href="#" id="about">About</a>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

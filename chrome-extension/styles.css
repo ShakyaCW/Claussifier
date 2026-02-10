@@ -1,0 +1,540 @@
+/* Content script styles */
+
+/* Highlighted clauses */
+.tos-risky-clause {
+    position: relative;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.tos-risk-high {
+    background-color: rgba(255, 68, 68, 0.15);
+    border-left: 4px solid #ff4444;
+}
+
+.tos-risk-medium {
+    background-color: rgba(255, 170, 0, 0.15);
+    border-left: 4px solid #ffaa00;
+}
+
+.tos-risk-low {
+    background-color: rgba(255, 200, 0, 0.1);
+    border-left: 4px solid #ffc800;
+}
+
+.tos-safe-clause {
+    background-color: rgba(68, 255, 68, 0.05);
+    border-left: 4px solid #44ff44;
+    padding: 8px;
+    margin: 4px 0;
+    border-radius: 4px;
+}
+
+.tos-risky-clause:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Tooltip */
+.tos-tooltip {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100%);
+    background: #1a1a2e;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    min-width: 250px;
+    max-width: 400px;
+    pointer-events: none;
+}
+
+.tos-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #1a1a2e;
+}
+
+.tos-tooltip-content {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.risk-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.risk-item:last-child {
+    border-bottom: none;
+}
+
+.risk-name {
+    font-weight: 500;
+}
+
+.risk-confidence {
+    background: #e94560;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* Modal */
+.tos-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100000;
+}
+
+.tos-modal-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;  /* Increased from 600px */
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+
+.tos-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 30px;
+    cursor: pointer;
+    color: #aaa;
+    transition: color 0.3s;
+}
+
+.tos-modal-close:hover {
+    color: #e94560;
+}
+
+.tos-modal-content h2 {
+    color: #e94560;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.tos-modal-content h3 {
+    color: #fff;
+    margin: 20px 0 10px;
+    font-size: 18px;
+}
+
+.tos-modal-content h4 {
+    color: #e94560;
+    margin: 15px 0 5px;
+    font-size: 16px;
+}
+
+.risk-section {
+    margin-bottom: 20px;
+}
+
+.risk-detail {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid #ff4444;
+}
+
+.risk-explanation {
+    color: #ccc;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-top: 10px;
+}
+
+.safe-section {
+    background: rgba(68, 255, 68, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #44ff44;
+}
+
+.safe-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.safe-section li {
+    padding: 5px 0;
+    color: #ccc;
+}
+
+.safe-section li::before {
+    content: "✓ ";
+    color: #44ff44;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+/* Loading indicator */
+#tos-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.tos-loader-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    color: white;
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top: 4px solid #e94560;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.tos-loader-content p {
+    font-size: 16px;
+    margin: 0;
+}
+
+/* Error message */
+.tos-error {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 100001;
+}
+
+.tos-error-content {
+    background: linear-gradient(135deg, #ff4444 0%, #d63447 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(255, 68, 68, 0.4);
+    min-width: 300px;
+}
+
+.tos-error-content h3 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+}
+
+.tos-error-content p {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+}
+
+.tos-error-content button {
+    background: white;
+    color: #ff4444;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.tos-error-content button:hover {
+    transform: scale(1.05);
+}
+
+/* Scrollbar styling for modal */
+.tos-modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tos-modal-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.tos-modal-content::-webkit-scrollbar-thumb {
+    background: #e94560;
+    border-radius: 10px;
+}
+
+.tos-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #d63447;
+}
+
+/* Background progress indicator */
+#tos-background-progress {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 99998;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.tos-progress-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 15px 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 250px;
+}
+
+.tos-progress-icon {
+    font-size: 24px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.tos-progress-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tos-progress-text strong {
+    color: white;
+    font-size: 14px;
+}
+
+.tos-progress-text span {
+    color: #aaa;
+    font-size: 12px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+/* XAI Attention Visualization */
+.attention-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border-left: 4px solid #4ade80;
+}
+
+.attention-section h3 {
+    color: #4ade80;
+    margin-top: 0;
+    font-size: 18px;
+}
+
+.attention-heatmap {
+    margin: 15px 0;
+}
+
+.heatmap-label {
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 10px;
+}
+
+.heatmap-text {
+    line-height: 2.2;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    word-wrap: break-word;
+}
+
+.heatmap-word {
+    display: inline-block;
+    margin: 3px 2px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    cursor: help;
+    font-weight: 500;
+}
+
+.heatmap-word:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+}
+
+/* Top Words List */
+.top-words {
+    margin-top: 20px;
+}
+
+.top-words h4 {
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.top-words ol {
+    list-style: none;
+    counter-reset: item;
+    padding: 0;
+    margin: 0;
+}
+
+.top-words li {
+    counter-increment: item;
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.top-words li:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.top-words li::before {
+    content: counter(item);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.top-words strong {
+    color: #fff;
+    font-size: 14px;
+    min-width: 120px;
+}
+
+.importance-bar {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.importance-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+    transition: width 0.5s ease;
+    border-radius: 5px;
+}
+
+.importance-value {
+    font-size: 13px;
+    color: #4ade80;
+    min-width: 55px;
+    text-align: right;
+    font-weight: 600;
+}
+
+/* LLM-Generated Explanations */
+.llm-explanation {
+    margin-top: 15px;
+    padding: 15px;
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border-left: 4px solid #4ade80;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.llm-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4ade80;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.llm-explanation p {
+    margin: 0;
+    color: #e8e8e8;
+}

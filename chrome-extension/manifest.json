@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "ToS Risk Detector",
+  "version": "1.0.0",
+  "description": "Automatically detect and highlight risky clauses in Terms of Service agreements",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*terms*",
+        "*://*/*tos*",
+        "*://*/*service*",
+        "*://*/*privacy*",
+        "*://*/*legal*",
+        "*://*/*policy*",
+        "*://*/*agreement*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
