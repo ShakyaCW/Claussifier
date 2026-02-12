@@ -40,38 +40,13 @@ Claussifier uses BERT-based machine learning to automatically detect unfair and 
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Frontend Layer                          │
-│  ┌──────────────────┐         ┌──────────────────┐          │
-│  │   Web UI         │         │ Chrome Extension │          │
-│  │  (HTML/CSS/JS)   │         │   (Manifest V3)  │          │
-│  └────────┬─────────┘         └────────┬─────────┘          │
-└───────────┼──────────────────────────┼────────────────────┘
-            │                          │
-            └──────────┬───────────────┘
-                       │ HTTP/REST
-            ┌──────────▼──────────┐
-            │   FastAPI Server    │
-            │      (app.py)       │
-            └──────────┬──────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-┌───────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐
-│ RiskClassifier│ │Attention │ │    Risk     │
-│               │ │Explainer │ │  Explainer  │
-└───────┬───────┘ └──────────┘ └─────────────┘
-        │
-        │ Loads Models
-        │
-┌───────▼────────────────────────────────────┐
-│  BERT Models (PyTorch + Transformers)      │
-│  • bert-base-uncased                       │
-│  • legal-bert-base-uncased                 │
-│  • legal-bert + negation augmentation ⭐   │
-└────────────────────────────────────────────┘
-```
+![Claussifier System Architecture](src/visualizations/Claussifier_System_Architecture.jpg)
+
+The system follows a layered architecture:
+- **Frontend Layer**: Web UI and Chrome Extension for user interaction
+- **Backend Layer**: FastAPI server with input validation and model selection
+- **AI Model Layer**: Three BERT variants with attention mechanism for explainable predictions
+- **Response Formation**: Structured JSON responses with risk assessments and explanations
 
 ---
 
