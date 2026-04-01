@@ -507,8 +507,8 @@ async function analyzeToS() {
     
     console.log(`Total clauses to analyze: ${clauses.length}`);
     
-    // Split into initial batch (25) and remaining
-    const INITIAL_BATCH_SIZE = 25;
+    // Split into initial batch (10) and remaining
+    const INITIAL_BATCH_SIZE = 10;
     const initialClauses = clauses.slice(0, INITIAL_BATCH_SIZE);
     const remainingClauses = clauses.slice(INITIAL_BATCH_SIZE);
     
