@@ -274,27 +274,34 @@ function showRiskDetails(classification) {
     
     html += '<div class="risk-section">';
     html += '<h3>Detected Risks:</h3>';
-    classification.risks_detected.forEach(risk => {
+    classification.risks_detected.forEach((risk, riskIndex) => {
         html += `<div class="risk-detail">`;
         html += `  <h4>${risk.risk_type}</h4>`;
         html += `  <p>Confidence: ${(risk.confidence * 100).toFixed(1)}%</p>`;
         
-        // Risk Explanation
+        // On-demand explanation accordion
+        html += `  <div class="llm-explanation-accordion" id="ext-explain-${riskIndex}">`;
+        html += `    <button class="ext-accordion-btn" id="ext-btn-${riskIndex}" 
+                         data-clause="${encodeURIComponent(classification.clause || '')}" 
+                         data-risk-type="${risk.risk_type}" 
+                         data-index="${riskIndex}"
+                         style="display:flex;align-items:center;padding:8px 0;background:transparent;border:none;color:#667eea;font-weight:600;cursor:pointer;width:100%;text-align:left;font-size:14px;">
+                        <span class="ext-accordion-icon" style="margin-right:8px;font-size:12px;">▶</span> 💡 What This Means
+                     </button>`;
+        html += `    <div class="ext-accordion-content" id="ext-content-${riskIndex}" style="display: none; padding-left: 20px; margin-top: 4px;">`;
         if (risk.explanation) {
-            html += `  <div class="llm-explanation">`;
-            html += `    <div class="llm-label">💡 What This Means:</div>`;
-            html += `    <p>${risk.explanation}</p>`;
-            html += `  </div>`;
+            html += `      <p class="ext-explanation-text" id="ext-text-${riskIndex}" style="margin:0;font-size:13px;line-height:1.4;color:#dde2eb;">${risk.explanation}</p>`;
         } else {
-            // Fallback to hardcoded explanation (shouldn't happen)
-            html += `  <p class="risk-explanation">${getRiskExplanation(risk.risk_type)}</p>`;
+            html += `      <p class="ext-explanation-text" id="ext-text-${riskIndex}" style="margin:0;font-size:13px;line-height:1.4;color:#dde2eb;"></p>`;
         }
+        html += `    </div>`;
+        html += `  </div>`;
         
         html += `</div>`;
     });
     html += '</div>';
     
-    // NEW: XAI Attention Visualization
+    // XAI Attention Visualization
     if (classification.attention_explanation) {
         const attention = classification.attention_explanation;
         
@@ -308,13 +315,11 @@ function showRiskDetails(classification) {
         
         attention.heatmap_data.forEach(item => {
             const intensity = item.normalized;
-            const color = getHeatmapColor(intensity);
-            const fontSize = 14 + (intensity * 6);  // 14-20px
+            const style = getHeatmapStyle(intensity);
             
             html += `
                 <span class="heatmap-word" 
-                      style="background-color: ${color}; 
-                             font-size: ${fontSize}px;"
+                      style="background-color: ${style.bg}; color: ${style.fg}; font-weight: ${style.weight}; font-size: ${style.size}; margin: 3px 2px;"
                       data-importance="${item.importance.toFixed(3)}"
                       title="Importance: ${item.importance.toFixed(3)}">
                     ${item.word}
@@ -352,6 +357,85 @@ function showRiskDetails(classification) {
     
     document.body.appendChild(modal);
     
+    // Add click handlers for accordion buttons
+    modal.querySelectorAll('.ext-accordion-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const riskIndex = this.dataset.index;
+            const clause = decodeURIComponent(this.dataset.clause);
+            const riskType = this.dataset.riskType;
+            const contentDiv = document.getElementById(`ext-content-${riskIndex}`);
+            const textEl = document.getElementById(`ext-text-${riskIndex}`);
+            const iconEl = this.querySelector('.ext-accordion-icon');
+            
+            // Toggle accordion visibility
+            if (contentDiv.style.display === 'block') {
+                contentDiv.style.display = 'none';
+                iconEl.textContent = '▶';
+                return;
+            } else {
+                contentDiv.style.display = 'block';
+                iconEl.textContent = '▼';
+            }
+            
+            // If we already have text or are already fetching, don't fetch again
+            if (contentDiv.dataset.fetched) {
+                return;
+            }
+            
+            contentDiv.dataset.fetched = 'loading';
+            textEl.innerHTML = '<span class="explanation-loading">Generating explanation<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></span>';
+            
+            // Stream explanation
+            try {
+                const response = await fetch(`${API_URL}/explain`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clause, risk_type: riskType }),
+                    signal: AbortSignal.timeout(60000)
+                });
+                
+                const contentType = response.headers.get('content-type') || '';
+                
+                if (contentType.includes('text/event-stream')) {
+                    textEl.textContent = '';
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    if (data.token) {
+                                        textEl.textContent += data.token;
+                                    }
+                                    if (data.done) break;
+                                } catch (e) { }
+                            }
+                        }
+                    }
+                } else {
+                    const data = await response.json();
+                    textEl.textContent = data.explanation;
+                }
+                
+                contentDiv.dataset.fetched = 'done';
+            } catch (error) {
+                console.error('Extension explanation error:', error);
+                textEl.textContent = 'Failed to generate explanation. Check if server is running.';
+                delete contentDiv.dataset.fetched;
+            }
+        });
+    });
+    
     // Close button
     modal.querySelector('.tos-modal-close').addEventListener('click', () => {
         modal.remove();
@@ -365,32 +449,21 @@ function showRiskDetails(classification) {
     });
 }
 
-// Helper function for heatmap colors
-function getHeatmapColor(intensity) {
-    // Gradient from light yellow (low) to dark red (high)
-    if (intensity < 0.3) {
-        return `rgba(255, 255, 200, ${0.3 + intensity})`;  // Light yellow
+// Helper function for heatmap colors (tuned for dark extension modal)
+function getHeatmapStyle(intensity) {
+    if (intensity < 0.15) {
+        return { bg: 'transparent', fg: '#ccc', weight: 'normal', size: '14px' };
+    } else if (intensity < 0.35) {
+        return { bg: '#fff9c4', fg: '#333', weight: 'normal', size: '14px' }; // Light Yellow
     } else if (intensity < 0.6) {
-        return `rgba(255, 200, 100, ${0.5 + intensity})`;  // Orange
+        return { bg: '#ffe082', fg: '#856404', weight: '500', size: '15px' }; // Amber
+    } else if (intensity < 0.8) {
+        return { bg: '#ffb74d', fg: '#541f00', weight: '600', size: '16px' }; // Orange
+    } else if (intensity < 0.95) {
+        return { bg: '#f4511e', fg: '#fff', weight: '700', size: '17px' };  // Deep Orange
     } else {
-        return `rgba(255, 100, 100, ${0.6 + intensity})`;  // Red
+        return { bg: '#d32f2f', fg: '#fff', weight: 'bold', size: '18px' };  // Red
     }
-}
-
-// Get risk explanation
-function getRiskExplanation(category) {
-    const explanations = {
-        'Limitation of liability': 'The service limits its responsibility for damages or losses you may incur.',
-        'Unilateral termination': 'The service can terminate your account without notice or cause.',
-        'Unilateral change': 'The service can change terms at any time without your consent.',
-        'Content removal': 'The service can remove your content without explanation.',
-        'Contract by using': 'Simply using the service means you agree to all terms.',
-        'Choice of law': 'Disputes are governed by laws that may not be in your jurisdiction.',
-        'Jurisdiction': 'Legal disputes must be resolved in a specific location, possibly far from you.',
-        'Arbitration': 'You waive your right to sue in court and must use arbitration instead.'
-    };
-    
-    return explanations[category] || 'This clause may contain unfair terms.';
 }
 
 // Update extension badge

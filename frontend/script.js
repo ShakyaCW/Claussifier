@@ -234,45 +234,73 @@ function displayRisks(risks, attentionExplanation) {
         return { level: 'low', label: 'Low' };
     }
     
-    // Function to get risk explanation
-    function getRiskExplanation(riskType) {
-        const explanations = {
-            'Limitation of liability': 
-                'This clause shields the company from legal responsibility if their service causes you harm, financial loss, or data breaches. Even if they\'re negligent, you likely cannot sue them for damages.',
+    // Fetch dynamic explanation (streaming)
+    async function fetchStreamingExplanation(clause, riskType, explanationTextEl) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/explain`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clause, risk_type: riskType })
+            });
             
-            'Unilateral termination': 
-                'The company can permanently delete your account and all your data at any time, for any reason (or no reason at all), without warning. You have no recourse or appeal process.',
+            const contentType = response.headers.get('content-type') || '';
             
-            'Unilateral change': 
-                'The company can rewrite these terms whenever they want without notifying you. You might wake up one day to find completely different rules apply to your account and data.',
-            
-            'Content removal': 
-                'Your posts, files, or content can be deleted at the company\'s sole discretion. They don\'t need to explain why, give you a chance to appeal, or let you retrieve your data first.',
-            
-            'Contract by using': 
-                'Simply visiting this website or using the app means you\'ve legally agreed to all these terms, even if you\'ve never read them. You can\'t claim you didn\'t know about unfavorable terms later.',
-            
-            'Choice of law': 
-                'If you have a legal dispute, it will be governed by laws from a different country or state that may not protect consumers as strongly as your local laws do.',
-            
-            'Jurisdiction': 
-                'Any lawsuit must be filed in a specific court location (often where the company is headquartered), which could be thousands of miles away and prohibitively expensive for you to pursue.',
-            
-            'Arbitration': 
-                'You give up your right to sue in court or join a class-action lawsuit. Instead, disputes go to private arbitration, which typically favors companies and limits your ability to recover damages.'
-        };
-        
-        return explanations[riskType] || 'This clause contains terms that may limit your legal rights, protections, or ability to seek compensation if something goes wrong.';
+            if (contentType.includes('text/event-stream')) {
+                // Streaming response — read tokens word-by-word
+                explanationTextEl.textContent = '';
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.token) {
+                                    explanationTextEl.textContent += data.token;
+                                }
+                                if (data.done) {
+                                    return { source: 'gemma3n', text: explanationTextEl.textContent };
+                                }
+                            } catch (e) { /* skip malformed line */ }
+                        }
+                    }
+                }
+                return { source: 'gemma3n', text: explanationTextEl.textContent };
+            } else {
+                // JSON fallback (static explanation)
+                const data = await response.json();
+                explanationTextEl.textContent = data.explanation;
+                return { source: data.source || 'static', text: data.explanation };
+            }
+        } catch (error) {
+            console.error('Failed to fetch explanation:', error);
+            return { source: 'static', text: explanationTextEl.textContent };
+        }
     }
     
-    // Function to get heatmap color based on intensity
-    function getHeatmapColor(intensity) {
-        if (intensity < 0.3) {
-            return `rgba(255, 235, 59, ${0.3 + intensity})`;  // Yellow
+    // Function to get distinct heatmap styling based on intensity
+    function getHeatmapStyle(intensity) {
+        if (intensity < 0.15) {
+            return { bg: 'transparent', fg: 'inherit', weight: 'normal', size: '0.95em' };
+        } else if (intensity < 0.35) {
+            return { bg: '#fff9c4', fg: '#333', weight: 'normal', size: '0.95em' }; // Light Yellow
         } else if (intensity < 0.6) {
-            return `rgba(255, 152, 0, ${0.5 + intensity})`;   // Orange
+            return { bg: '#ffe082', fg: '#856404', weight: '500', size: '1.0em' };  // Amber
+        } else if (intensity < 0.8) {
+            return { bg: '#ffb74d', fg: '#541f00', weight: '600', size: '1.05em' }; // Orange
+        } else if (intensity < 0.95) {
+            return { bg: '#f4511e', fg: '#fff', weight: '700', size: '1.1em' };   // Deep Orange
         } else {
-            return `rgba(244, 67, 54, ${0.6 + intensity})`;   // Red
+            return { bg: '#d32f2f', fg: '#fff', weight: 'bold', size: '1.15em' }; // Red
         }
     }
     
@@ -287,9 +315,9 @@ function displayRisks(risks, attentionExplanation) {
         heatmapHTML += `<div class="heatmap-text">`;
         
         attention.heatmap_data.forEach(item => {
-            const color = getHeatmapColor(item.normalized);
+            const style = getHeatmapStyle(item.normalized);
             heatmapHTML += `<span class="heatmap-word" 
-                                 style="background-color: ${color};"
+                                 style="background-color: ${style.bg}; color: ${style.fg}; font-weight: ${style.weight}; font-size: ${style.size}; margin: 3px 2px;"
                                  title="Importance: ${item.importance.toFixed(3)}">
                                 ${item.word}
                             </span>`;
@@ -318,16 +346,19 @@ function displayRisks(risks, attentionExplanation) {
         }
     }
     
+    // Store the clause text for on-demand explanation
+    const currentClause = clauseInput.value.trim();
+    
     const risksHTML = `
         <h3>⚠️ Identified Risks (${risks.length})</h3>
         ${risks.map((risk, index) => {
             const severity = getSeverity(risk.confidence);
             const confidencePercent = (risk.confidence * 100).toFixed(1);
-            const explanation = risk.explanation || getRiskExplanation(risk.risk_type);
+            const explanation = risk.explanation || '';
             const riskId = `risk-${index}`;
             
             return `
-                <div class="risk-item">
+                <div class="risk-item" data-clause="${encodeURIComponent(currentClause)}" data-risk-type="${risk.risk_type}">
                     <div class="risk-item-header">
                         <div class="risk-name">${risk.risk_type}</div>
                         <div class="risk-confidence">
@@ -348,30 +379,55 @@ function displayRisks(risks, attentionExplanation) {
                         <div class="explanation-label">
                             💡 Explanation
                         </div>
-                        <div class="explanation-text">${explanation}</div>
-                        ${heatmapHTML}
+                        <div class="explanation-text" id="${riskId}-text">${explanation}</div>
+                        <div class="explanation-loading" id="${riskId}-loading" style="display:none;">
+                            <span class="loading-dots">Generating AI explanation<span>.</span><span>.</span><span>.</span></span>
+                        </div>
                     </div>
                 </div>
             `;
         }).join('')}
+        
+        ${heatmapHTML}
     `;
     
     risksDetected.innerHTML = risksHTML;
     
-    // Add click handlers for toggle buttons
+    // Add click handlers for toggle buttons (with streaming explanation)
     document.querySelectorAll('.toggle-explanation').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', async function() {
             const riskId = this.getAttribute('data-risk-id');
-            const explanation = document.getElementById(riskId);
+            const explanationDiv = document.getElementById(riskId);
+            const explanationText = document.getElementById(`${riskId}-text`);
+            const explanationLoading = document.getElementById(`${riskId}-loading`);
+            const riskItem = this.closest('.risk-item');
             
             // Toggle expanded state
             this.classList.toggle('expanded');
-            explanation.classList.toggle('expanded');
+            explanationDiv.classList.toggle('expanded');
             
             // Update button text
             const toggleText = this.querySelector('.toggle-text');
             if (this.classList.contains('expanded')) {
                 toggleText.textContent = 'Hide Explanation';
+                
+                // Fetch dynamic explanation on first expand (if not already fetched)
+                if (!explanationDiv.dataset.fetched) {
+                    explanationDiv.dataset.fetched = 'loading';
+                    
+                    // Show loading indicator
+                    explanationLoading.style.display = 'block';
+                    
+                    // Get clause and risk type from data attributes
+                    const clause = decodeURIComponent(riskItem.dataset.clause);
+                    const riskType = riskItem.dataset.riskType;
+                    
+                    // Stream explanation from Gemma 3n
+                    await fetchStreamingExplanation(clause, riskType, explanationText);
+                    
+                    explanationLoading.style.display = 'none';
+                    explanationDiv.dataset.fetched = 'done';
+                }
             } else {
                 toggleText.textContent = 'What This Means';
             }
