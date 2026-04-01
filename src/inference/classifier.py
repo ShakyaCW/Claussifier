@@ -85,7 +85,7 @@ class RiskClassifier:
             
             self.model.to(self.device)
             self.model.eval()
-            print(f"✓ Model loaded from: {self.model_dir}")
+            print(f"Model loaded from: {self.model_dir}")
             print(f"  - Attention implementation: eager")
             print(f"  - Output attentions: {self.model.config.output_attentions}")
         except Exception as e:
@@ -102,11 +102,11 @@ class RiskClassifier:
             with open(thresholds_path, 'r') as f:
                 config = json.load(f)
                 self.thresholds = config['optimal_thresholds']
-            print(f"✓ Loaded optimal thresholds from: {thresholds_path}")
+            print(f"Loaded optimal thresholds from: {thresholds_path}")
         else:
             # Use default threshold of 0.5 for all classes
             self.thresholds = [0.5] * len(self.LABEL_NAMES)
-            print("⚠ Using default thresholds (0.5) - optimal thresholds not found")
+            print("Using default thresholds (0.5) - optimal thresholds not found")
     
     def classify(
         self,
