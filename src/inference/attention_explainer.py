@@ -116,18 +116,40 @@ class AttentionExplainer:
             valid_tokens, valid_scores
         )
         
-        # 6. Get top-k most important words (filter out punctuation)
+        # Post-process: Zero out common stopwords and legal boilerplate
+        stopwords = {
+            'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
+            'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
+            'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+            'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
+            'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
+            'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until',
+            'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into',
+            'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down',
+            'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here',
+            'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more',
+            'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
+            'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'may',
+            # Legal boilerplate and fillers
+            'hereby', 'herein', 'therein', 'whereby', 'hereinafter', 'shall', 'whereas', 'thereto', 'therefore'
+        }
+        
+        for i in range(len(merged_words)):
+            if merged_words[i].lower() in stopwords:
+                merged_scores[i] = 0.0
+        
+        # 6. Get top-k most important words (filter out punctuation and zeroed stopwords)
         if len(merged_scores) > 0:
             # Define punctuation and special tokens to filter out
             punctuation = {'.', ',', '!', '?', ';', ':', '-', '–', '—', '(', ')', '[', ']', 
                           '{', '}', '"', "'", '`', '/', '\\', '|', '@', '#', '$', '%', 
                           '^', '&', '*', '+', '=', '<', '>', '~'}
             
-            # Create list of (index, word, score) tuples, filtering punctuation
+            # Create list of (index, word, score) tuples, filtering punctuation and zero-scores
             word_score_pairs = [
                 (i, merged_words[i], merged_scores[i])
                 for i in range(len(merged_words))
-                if merged_words[i] not in punctuation and len(merged_words[i]) > 1
+                if merged_words[i] not in punctuation and len(merged_words[i]) > 1 and merged_scores[i] > 0.0
             ]
             
             # Sort by score and take top-k
@@ -145,8 +167,8 @@ class AttentionExplainer:
         else:
             top_words = []
         
-        # 7. Create heatmap data (for visualization) - filter out punctuation
-        max_score = max(merged_scores) if merged_scores else 1.0
+        # 7. Create heatmap data (for visualization)
+        max_score = max(merged_scores) if merged_scores and max(merged_scores) > 0 else 1.0
         
         # Reuse the same punctuation set
         punctuation = {'.', ',', '!', '?', ';', ':', '-', '–', '—', '(', ')', '[', ']', 

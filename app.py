@@ -12,15 +12,21 @@ Then visit: http://localhost:8000
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
+import json
 from pathlib import Path
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
 # Import our modules
 from src.inference.classifier import RiskClassifier
 from src.inference.risk_explainer import RiskExplainer
+from src.inference.ollama_explainer import OllamaExplainer
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -41,6 +47,7 @@ app.add_middleware(
 # Global variables
 classifier = None
 risk_explainer = None
+ollama_explainer = None
 current_model_name = "legalbert_with_augmentation_final_model"  # Default model (augmented with negation examples)
 
 # Request/Response models
@@ -51,6 +58,10 @@ class ClassifyRequest(BaseModel):
 class BatchClassifyRequest(BaseModel):
     clauses: List[str] = Field(..., description="List of clauses to classify")
     return_all_scores: bool = Field(False, description="Return scores for all categories")
+
+class ExplainRequest(BaseModel):
+    clause: str = Field(..., description="Legal clause text to explain", min_length=10)
+    risk_type: str = Field(..., description="Risk category detected by BERT")
 
 class RiskInfo(BaseModel):
     risk_type: str
@@ -75,7 +86,7 @@ async def load_model(model_name: str = None):
     model_dir = Path(f"src/models/{current_model_name}")
     
     if not model_dir.exists():
-        print("⚠ Model directory not found!")
+        print("Model directory not found!")
         print(f"Expected location: {model_dir.absolute()}")
         print("\nPlease download the model from Google Drive:")
         print(f"  /MyDrive/Claussifier/models/{current_model_name}/")
@@ -85,14 +96,15 @@ async def load_model(model_name: str = None):
     
     try:
         classifier = RiskClassifier(model_dir=str(model_dir))
-        print(f"✓ Model loaded successfully: {current_model_name}")
+        print(f"Model loaded successfully: {current_model_name}")
     except Exception as e:
-        print(f"✗ Failed to load model: {e}")
+        print(f"Failed to load model: {e}")
     
     # Initialize risk explainer
-    global risk_explainer
+    global risk_explainer, dynamic_explainer
     risk_explainer = RiskExplainer()
-    print("✓ Risk Explainer initialized")
+    dynamic_explainer = risk_explainer.explainer
+    print("Risk Explainer initialized")
 
 # Root endpoint
 @app.get("/", response_class=HTMLResponse)
@@ -138,10 +150,10 @@ async def root():
         </head>
         <body>
             <div class="container">
-                <h1>🔍 Claussifier API</h1>
+                <h1>Claussifier API</h1>
                 <p>Legal Clause Risk Assessment using BERT</p>
                 
-                <h2>📍 Endpoints</h2>
+                <h2>Endpoints</h2>
                 
                 <div class="endpoint">
                     <strong>POST /classify</strong><br>
@@ -165,13 +177,13 @@ async def root():
                     Check API health status
                 </div>
                 
-                <h2>📚 Documentation</h2>
+                <h2>Documentation</h2>
                 <p>
                     Interactive API docs: <a href="/docs">/docs</a><br>
                     Alternative docs: <a href="/redoc">/redoc</a>
                 </p>
                 
-                <h2>🎨 Frontend</h2>
+                <h2>Frontend</h2>
                 <p>
                     Open <code>frontend/index.html</code> in your browser to use the web interface.
                 </p>
@@ -191,7 +203,7 @@ async def health_check():
 
 # Model info
 @app.get("/model-info")
-async def get_model_info():
+def get_model_info():
     """Get information about the loaded model."""
     if classifier is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -273,7 +285,7 @@ async def get_model_info():
 
 # Switch model endpoint
 @app.post("/switch-model")
-async def switch_model(request: dict):
+def switch_model(request: dict):
     """Switch to a different model."""
     global classifier, current_model_name
     
@@ -295,7 +307,7 @@ async def switch_model(request: dict):
         # Load new model
         current_model_name = model_name
         classifier = RiskClassifier(model_dir=str(model_dir))
-        print(f"✓ Switched to model: {current_model_name}")
+        print(f"Switched to model: {current_model_name}")
         
         return {
             "status": "success",
@@ -307,7 +319,7 @@ async def switch_model(request: dict):
 
 # Single clause classification
 @app.post("/classify", response_model=ClassifyResponse)
-async def classify_clause(request: ClassifyRequest):
+def classify_clause(request: ClassifyRequest):
     """
     Classify a single legal clause for risk assessment.
     
@@ -323,20 +335,9 @@ async def classify_clause(request: ClassifyRequest):
             return_all_scores=request.return_all_scores
         )
         
-        # Add risk explanations
-        if result['is_risky'] and risk_explainer:
+        if result['is_risky']:
             for risk in result['risks_detected']:
-                try:
-                    explanation = risk_explainer.explain_risk(
-                        clause=request.clause,
-                        risk_type=risk['risk_type'],
-                        confidence=risk['confidence'],
-                        top_words=result['attention_explanation']['top_words']
-                    )
-                    risk['explanation'] = explanation
-                except Exception as e:
-                    print(f"Explanation generation failed for '{risk['risk_type']}': {e}")
-                    # Continue without explanation
+                risk['explanation'] = None
         
         return ClassifyResponse(
             status="success",
@@ -348,7 +349,7 @@ async def classify_clause(request: ClassifyRequest):
 
 # Batch classification
 @app.post("/classify-batch", response_model=ClassifyResponse)
-async def classify_batch(request: BatchClassifyRequest):
+def classify_batch(request: BatchClassifyRequest):
     """
     Classify multiple legal clauses in batch.
     
@@ -385,7 +386,7 @@ async def classify_batch(request: BatchClassifyRequest):
 
 # Batch classification with attention (XAI)
 @app.post("/classify-batch-with-attention", response_model=ClassifyResponse)
-async def classify_batch_with_attention(request: BatchClassifyRequest):
+def classify_batch_with_attention(request: BatchClassifyRequest):
     """
     Classify multiple legal clauses with attention-based explanations (XAI).
     
@@ -411,20 +412,9 @@ async def classify_batch_with_attention(request: BatchClassifyRequest):
                 return_all_scores=request.return_all_scores
             )
             
-            # Add risk explanations
-            if result['is_risky'] and risk_explainer:
+            if result['is_risky']:
                 for risk in result['risks_detected']:
-                    try:
-                        explanation = risk_explainer.explain_risk(
-                            clause=clause,
-                            risk_type=risk['risk_type'],
-                            confidence=risk['confidence'],
-                            top_words=result['attention_explanation']['top_words']
-                        )
-                        risk['explanation'] = explanation
-                    except Exception as e:
-                        print(f"Explanation generation failed for '{risk['risk_type']}': {e}")
-                        # Continue without explanation
+                    risk['explanation'] = None
             
             results.append(result)
         
@@ -443,12 +433,73 @@ async def classify_batch_with_attention(request: BatchClassifyRequest):
 
 
 
+@app.post("/explain")
+async def explain_risk_streaming(request: ExplainRequest):
+    """
+    Generate a dynamic, context-aware explanation using explicitly configured backend.
+    Returns a streaming response with tokens generated word-by-word.
+    
+    Falls back to static explanation if dynamic backend is unavailable.
+    """
+    if dynamic_explainer is None:
+        print("Dynamic explainer not initialized")
+        # No explainer initialized, return static
+        return {
+            "explanation": RiskExplainer().explain_risk_static(request.risk_type),
+            "source": "static",
+            "streaming": False
+        }
+    
+    # Check if backend is available
+    status = dynamic_explainer.is_available()
+    
+    if not status['available']:
+        # Backend not available, return static explanation as JSON
+        return {
+            "explanation": dynamic_explainer.get_static_explanation(request.risk_type),
+            "source": "static",
+            "streaming": False
+        }
+    
+    # Stream explanation from active backend
+    def stream_tokens():
+        for token in dynamic_explainer.generate_explanation_stream(
+            clause=request.clause,
+            risk_type=request.risk_type
+        ):
+            yield f"data: {json.dumps({'token': token})}\n\n"
+        
+        yield f"data: {json.dumps({'done': True})}\n\n"
+    
+    return StreamingResponse(
+        stream_tokens(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@app.get("/ollama-status")
+async def ollama_status():
+    """Check if dynamic explanations are available (either via Ollama or Gemini)."""
+    if dynamic_explainer is None:
+        return {
+            "available": False,
+            "message": "dynamic_explainer not initialized"
+        }
+    
+    return dynamic_explainer.is_available()
+
+
 # Run server
 if __name__ == "__main__":
     import uvicorn
     
     print("\n" + "="*80)
-    print("🚀 Starting Claussifier API Server")
+    print("Starting Claussifier API Server")
     print("="*80)
     print("\nServer will be available at:")
     print("  • API: http://localhost:8000")
