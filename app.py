@@ -26,7 +26,6 @@ load_dotenv()
 # Import our modules
 from src.inference.classifier import RiskClassifier
 from src.inference.risk_explainer import RiskExplainer
-from src.inference.ollama_explainer import OllamaExplainer
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -38,7 +37,7 @@ app = FastAPI(
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
