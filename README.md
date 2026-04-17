@@ -344,18 +344,68 @@ Claussifier/
 
 ## 🧪 Testing
 
-Run the test suite:
+The project uses **pytest** with markers to organise three test categories.
+
+### Install Test Dependencies
 
 ```bash
-# Test model loading
-python test_model_loading.py
-
-# Test model info endpoint
-python test_model_info.py
-
-# Test XAI explanations
-python test_xai.py
-
-# Test data augmentation
-python test_negation_augmentation.py
+pip install pytest httpx
 ```
+
+### Run All Tests
+
+```bash
+pytest
+```
+
+### Run Tests by Category
+
+```bash
+# Unit tests — classifier, attention explainer, risk explainer
+pytest -m unit
+
+# API tests — individual FastAPI endpoint tests
+pytest -m api
+
+# Integration tests — multi-endpoint pipeline flows
+pytest -m integration
+```
+
+### Useful Options
+
+```bash
+# Verbose output with individual test names
+pytest -v
+
+# Stop on first failure
+pytest -x
+
+# Run a specific test file
+pytest tests/unit/test_classifier.py
+
+# Run a specific test function
+pytest tests/api/test_classify.py::test_classify_risky_clause
+```
+
+### Test Structure
+
+```
+tests/
+├── conftest.py                          # Shared fixtures (mock classifier, test client, sample data)
+├── unit/                                # Unit tests (no external dependencies)
+│   ├── test_attention_explainer.py
+│   ├── test_classifier.py
+│   └── test_risk_explainer.py
+├── api/                                 # API endpoint tests (FastAPI TestClient)
+│   ├── test_classify.py
+│   ├── test_classify_batch.py
+│   ├── test_explain.py
+│   ├── test_health.py
+│   ├── test_model_info_endpoint.py
+│   └── test_switch_model.py
+├── integration/                         # Integration tests (multi-endpoint flows)
+│   └── test_classification_pipeline.py
+└── accuracy/                            # Model accuracy evaluation notebooks
+    └── 06_model_accuracy_evaluation.ipynb
+```
+
