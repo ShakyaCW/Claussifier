@@ -38,7 +38,7 @@ class GeminiExplainer:
         """
         Initialize the explainer via Gemini SDK.
         """
-        self.model_name = os.getenv("GEMINI_MODEL", "gemma-3-1b-it")
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
         self.system_prompt = self._load_system_prompt(prompt_path)
         
         try:

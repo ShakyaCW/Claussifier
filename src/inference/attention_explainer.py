@@ -2,7 +2,7 @@
 Attention-based Explainer for BERT Risk Classifier
 
 This module extracts and processes BERT attention weights to provide
-explainable AI (XAI) insights into model predictions.
+explainable AI insights into model predictions.
 """
 
 import torch
