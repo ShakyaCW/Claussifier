@@ -179,7 +179,7 @@ class TestGeminiAvailability:
 
         exp = GeminiExplainer.__new__(GeminiExplainer)
         exp.client = MagicMock()  # non-None = initialized
-        exp.model_name = "gemma-3-1b-it"
+        exp.model_name = "gemini-3.1-flash-lite"
         status = exp.is_available()
         assert status["available"] is True
 

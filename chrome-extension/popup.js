@@ -149,6 +149,30 @@ function showNoData() {
     document.getElementById('manualAnalyze').addEventListener('click', reanalyze);
 }
 
+// Ensure content script is injected, then send a message to it
+async function ensureContentScriptAndSend(tab, message) {
+    try {
+        // Try sending first — if the script is already injected, this will work
+        await chrome.tabs.sendMessage(tab.id, { action: 'ping' });
+    } catch {
+        // Content script not present — inject it programmatically
+        await chrome.scripting.insertCSS({
+            target: { tabId: tab.id },
+            files: ['styles.css']
+        });
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+        });
+        // Small delay to let the script initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    // Now send the actual message
+    chrome.tabs.sendMessage(tab.id, message, () => {
+        setTimeout(loadResults, 3000);
+    });
+}
+
 // Reanalyze current page
 async function reanalyze() {
     const content = document.getElementById('content');
@@ -159,11 +183,8 @@ async function reanalyze() {
         </div>
     `;
     
-    // Send message to content script
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    chrome.tabs.sendMessage(tab.id, { action: 'reanalyze' }, (response) => {
-        setTimeout(loadResults, 2000); // Wait for analysis to complete
-    });
+    await ensureContentScriptAndSend(tab, { action: 'reanalyze' });
 }
 
 // Export report

@@ -80,7 +80,7 @@ class RiskClassifier:
                 attn_implementation='eager'  # Required for output_attentions
             )
             
-            # Enable attention output for XAI
+            # Enable attention output
             self.model.config.output_attentions = True
             
             self.model.to(self.device)
@@ -217,7 +217,7 @@ class RiskClassifier:
                 'is_risky': bool,
                 'risks_detected': List[Dict],
                 'safe_categories': List[str],
-                'attention_explanation': Dict (XAI data)
+                'attention_explanation': Dict (Attention data)
             }
         """
         # Import here to avoid circular dependency
@@ -294,7 +294,7 @@ class RiskClassifier:
                 reverse=True
             ),
             'safe_categories': safe_categories,
-            'attention_explanation': attention_explanation  # NEW: XAI data
+            'attention_explanation': attention_explanation
         }
         
         if return_all_scores:
@@ -306,6 +306,163 @@ class RiskClassifier:
         
         return result
     
+    def classify_batch_with_attention(
+        self,
+        clauses: List[str],
+        batch_size: int = 16,
+        return_all_scores: bool = False
+    ) -> List[Dict]:
+        """
+        Classify multiple clauses with lazy attention:
+        1. Fast forward pass WITHOUT attention for all clauses
+        2. Second pass WITH attention ONLY for risky clauses
+        
+        This is significantly faster because attention computation is expensive
+        and most clauses are typically safe (no attention needed).
+        
+        Args:
+            clauses: List of clause texts to classify
+            batch_size: Max clauses per forward pass (memory limit)
+            return_all_scores: If True, return scores for all categories
+        
+        Returns:
+            List of classification results with attention explanations (risky only)
+        """
+        from .attention_explainer import AttentionExplainer
+        
+        all_results = [None] * len(clauses)
+        risky_indices = []
+        
+        # PHASE 1: Fast classification without attention (all clauses)
+        for i in range(0, len(clauses), batch_size):
+            batch_clauses = clauses[i:i + batch_size]
+            
+            encoding = self.tokenizer(
+                batch_clauses,
+                add_special_tokens=True,
+                max_length=512,
+                padding='max_length',
+                truncation=True,
+                return_attention_mask=True,
+                return_tensors='pt'
+            )
+            
+            input_ids = encoding['input_ids'].to(self.device)
+            attention_mask = encoding['attention_mask'].to(self.device)
+            
+            # Forward pass WITHOUT attention (faster)
+            with torch.no_grad():
+                outputs = self.model(
+                    input_ids,
+                    attention_mask=attention_mask,
+                    output_attentions=False
+                )
+                logits = outputs.logits
+                probs = torch.sigmoid(logits).cpu().numpy()
+            
+            for idx in range(len(batch_clauses)):
+                global_idx = i + idx
+                clause_probs = probs[idx]
+                
+                risks_detected = []
+                safe_categories = []
+                all_scores = []
+                
+                for label_idx, (label, prob, threshold) in enumerate(
+                    zip(self.LABEL_NAMES, clause_probs, self.thresholds)
+                ):
+                    score_info = {
+                        'risk_type': label,
+                        'confidence': float(prob),
+                        'threshold': threshold,
+                        'predicted': prob >= threshold
+                    }
+                    
+                    if return_all_scores:
+                        all_scores.append(score_info)
+                    
+                    if prob >= threshold:
+                        risks_detected.append({
+                            'risk_type': label,
+                            'confidence': float(prob),
+                            'threshold': threshold
+                        })
+                    else:
+                        safe_categories.append(label)
+                
+                result = {
+                    'clause': batch_clauses[idx],
+                    'is_risky': len(risks_detected) > 0,
+                    'risks_detected': sorted(
+                        risks_detected,
+                        key=lambda x: x['confidence'],
+                        reverse=True
+                    ),
+                    'safe_categories': safe_categories,
+                    'attention_explanation': None
+                }
+                
+                if return_all_scores:
+                    result['all_scores'] = sorted(
+                        all_scores,
+                        key=lambda x: x['confidence'],
+                        reverse=True
+                    )
+                
+                all_results[global_idx] = result
+                
+                if len(risks_detected) > 0:
+                    risky_indices.append(global_idx)
+        
+        # PHASE 2: Attention pass ONLY for risky clauses
+        if risky_indices:
+            explainer = AttentionExplainer()
+            risky_clauses = [clauses[idx] for idx in risky_indices]
+            
+            for i in range(0, len(risky_clauses), batch_size):
+                batch_clauses = risky_clauses[i:i + batch_size]
+                batch_indices = risky_indices[i:i + batch_size]
+                
+                encoding = self.tokenizer(
+                    batch_clauses,
+                    add_special_tokens=True,
+                    max_length=512,
+                    padding='max_length',
+                    truncation=True,
+                    return_attention_mask=True,
+                    return_tensors='pt'
+                )
+                
+                input_ids = encoding['input_ids'].to(self.device)
+                attention_mask = encoding['attention_mask'].to(self.device)
+                
+                # Forward pass WITH attention (only for risky clauses)
+                with torch.no_grad():
+                    outputs = self.model(
+                        input_ids,
+                        attention_mask=attention_mask,
+                        output_attentions=True
+                    )
+                    attentions = outputs.attentions
+                
+                for idx in range(len(batch_clauses)):
+                    clause_attentions = tuple(
+                        layer_attn[idx:idx+1] for layer_attn in attentions
+                    )
+                    clause_input_ids = input_ids[idx:idx+1]
+                    
+                    attention_explanation = explainer.explain_prediction(
+                        input_ids=clause_input_ids,
+                        attentions=clause_attentions,
+                        tokenizer=self.tokenizer,
+                        top_k=10
+                    )
+                    
+                    global_idx = batch_indices[idx]
+                    all_results[global_idx]['attention_explanation'] = attention_explanation
+        
+        return all_results
+
     def classify_batch(
         self,
         clauses: List[str],

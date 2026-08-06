@@ -137,9 +137,13 @@ def mock_classifier():
     def _classify_batch(clauses, batch_size=16, return_all_scores=False):
         return [_classify(c, return_all_scores) for c in clauses]
 
+    def _classify_batch_with_attention(clauses, batch_size=16, return_all_scores=False):
+        return [_classify_with_attention(c, return_all_scores) for c in clauses]
+
     clf.classify = MagicMock(side_effect=_classify)
     clf.classify_with_attention = MagicMock(side_effect=_classify_with_attention)
     clf.classify_batch = MagicMock(side_effect=_classify_batch)
+    clf.classify_batch_with_attention = MagicMock(side_effect=_classify_batch_with_attention)
     clf.get_model_info.return_value = {
         "model_name": "BERT Risk Detector",
         "model_type": "bert-base-uncased",

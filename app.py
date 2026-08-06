@@ -328,7 +328,7 @@ def classify_clause(request: ClassifyRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
     
     try:
-        # Use classify_with_attention to get both classification and XAI data
+        # Use classify_with_attention to get both classification and Attention weight data
         result = classifier.classify_with_attention(
             clause=request.clause,
             return_all_scores=request.return_all_scores
@@ -383,14 +383,14 @@ def classify_batch(request: BatchClassifyRequest):
         raise HTTPException(status_code=500, detail=f"Batch classification failed: {str(e)}")
 
 
-# Batch classification with attention (XAI)
+# Batch classification with attention
 @app.post("/classify-batch-with-attention", response_model=ClassifyResponse)
 def classify_batch_with_attention(request: BatchClassifyRequest):
     """
-    Classify multiple legal clauses with attention-based explanations (XAI).
+    Classify multiple legal clauses with attention-based explanations.
     
-    Returns classification results plus attention weights showing which
-    words/phrases influenced the model's predictions.
+    Uses true batched inference for significantly faster processing —
+    all clauses are processed in a single model forward pass.
     """
     if classifier is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -402,20 +402,18 @@ def classify_batch_with_attention(request: BatchClassifyRequest):
         raise HTTPException(status_code=400, detail="Maximum 100 clauses per batch")
     
     try:
-        results = []
+        # True batch inference: single forward pass for all clauses
+        results = classifier.classify_batch_with_attention(
+            clauses=request.clauses,
+            batch_size=16,
+            return_all_scores=request.return_all_scores
+        )
         
-        # Process each clause with attention
-        for clause in request.clauses:
-            result = classifier.classify_with_attention(
-                clause=clause,
-                return_all_scores=request.return_all_scores
-            )
-            
+        # Clear explanation field for risky clauses (populated on-demand via /explain)
+        for result in results:
             if result['is_risky']:
                 for risk in result['risks_detected']:
                     risk['explanation'] = None
-            
-            results.append(result)
         
         return ClassifyResponse(
             status="success",

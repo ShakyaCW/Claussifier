@@ -5,7 +5,8 @@
   "description": "Automatically detect and highlight risky clauses in Terms of Service agreements",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "http://localhost:8000/*",
