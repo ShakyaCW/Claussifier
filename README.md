@@ -224,7 +224,7 @@ if result['data']['is_risky']:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/classify` | POST | Classify a single clause with XAI explanations |
+| `/classify` | POST | Classify a single clause with explanations |
 | `/classify-batch` | POST | Classify multiple clauses (up to 100) |
 | `/classify-batch-with-attention` | POST | Batch classification with attention weights |
 | `/model-info` | GET | Get current model metadata and performance |
@@ -302,7 +302,7 @@ Claussifier/
 ├── src/
 │   ├── inference/
 │   │   ├── classifier.py            # RiskClassifier (main logic)
-│   │   ├── attention_explainer.py   # XAI attention weights
+│   │   ├── attention_explainer.py   # Attention weights
 │   │   └── risk_explainer.py        # Plain language explanations
 │   ├── models/                      # Trained model files
 │   ├── results/                     # Training reports
