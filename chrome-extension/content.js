@@ -4,6 +4,169 @@ console.log('ToS Risk Detector: Content script loaded');
 const API_URL = 'http://localhost:8000';
 let analysisResults = null;
 
+// --- PRIVACY & SECURITY MODULE ---
+
+// Only allow data to be sent to local endpoints
+const ALLOWED_API_ORIGINS = ['http://localhost', 'http://127.0.0.1'];
+
+function isApiUrlSafe(url) {
+    return ALLOWED_API_ORIGINS.some(origin => url.startsWith(origin));
+}
+
+// PII patterns to redact before sending text to the API
+const PII_PATTERNS = [
+    { regex: /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b/g, replacement: '[EMAIL_REDACTED]' },
+    { regex: /\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g, replacement: '[SSN_REDACTED]' },
+    { regex: /\b(?:\d{4}[-\s]?){3}\d{4}\b/g, replacement: '[CARD_REDACTED]' },
+    { regex: /\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, replacement: '[PHONE_REDACTED]' },
+    { regex: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, replacement: '[IP_REDACTED]' },
+];
+
+// Redact PII from text before sending to API
+function redactPII(text) {
+    let sanitized = text;
+    for (const { regex, replacement } of PII_PATTERNS) {
+        sanitized = sanitized.replace(regex, replacement);
+    }
+    return sanitized;
+}
+
+// Elements/containers that may hold user-specific or editable content
+const USER_CONTENT_SELECTORS = [
+    'form',
+    '[contenteditable="true"]',
+    'textarea',
+    'input',
+    '[role="textbox"]',
+    '.comment', '.comments', '.review', '.reviews',
+    '.user-profile', '.account-info', '.profile',
+    '[data-user]', '[data-account]'
+];
+
+// Check if element is inside a user-content/form area
+function isUserContentArea(element) {
+    for (const selector of USER_CONTENT_SELECTORS) {
+        if (element.closest(selector)) {
+            return true;
+        }
+    }
+    // Check if element itself is editable
+    if (element.isContentEditable) return true;
+    return false;
+}
+
+// Verify the page is likely a legal/ToS document (not a user account page)
+function isLikelyLegalPage() {
+    const pageText = document.body.innerText.toLowerCase();
+    const legalKeywords = [
+        // Formal legal terms
+        'terms of service', 'terms of use', 'terms and conditions',
+        'privacy policy', 'user agreement', 'license agreement',
+        'end user license', 'acceptable use', 'cookie policy',
+        'data protection', 'intellectual property', 'limitation of liability',
+        'governing law', 'arbitration', 'indemnification', 'disclaimer',
+        // Common in modern/simplified ToS
+        'reserve the right', 'we may terminate', 'cancellation policy',
+        'refund', 'subscription', 'you agree not to',
+        'prohibited content', 'terminate your account', 'at our sole discretion',
+        'binding agreement', 'third-party', 'comply with'
+    ];
+    const matchCount = legalKeywords.filter(kw => pageText.includes(kw)).length;
+    // Require at least 2 legal keywords to confirm this is a legal page
+    return matchCount >= 2;
+}
+
+// Strip sensitive data from classification results before storage
+function sanitizeResultsForStorage(results) {
+    return {
+        highRisk: results.highRisk,
+        mediumRisk: results.mediumRisk,
+        lowRisk: results.lowRisk,
+        total: results.total,
+        // Only store classification metadata, not raw clause text
+        classifications: results.classifications.map(c => ({
+            is_risky: c.is_risky,
+            risks_detected: c.risks_detected.map(r => ({
+                risk_type: r.risk_type,
+                confidence: r.confidence
+            })),
+            safe_categories: c.safe_categories
+            // Deliberately omit: clause (raw text), attention_explanation
+        }))
+    };
+}
+
+// --- END PRIVACY & SECURITY MODULE ---
+
+// Selectors for navigation/TOC containers to exclude
+const EXCLUDED_ANCESTORS = [
+    'nav',
+    'aside',
+    'header',
+    'footer',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]'
+];
+
+// Class/ID patterns indicating navigation or TOC elements
+const NAV_TOC_PATTERNS = /\b(toc|table-of-content|table_of_content|tableofcontent|sidebar|side-bar|side-nav|sidenav|nav|menu|breadcrumb|footer|header)\b/i;
+
+// Check if an element is inside a navigation/TOC container
+function isInExcludedContainer(element) {
+    // Check structural ancestors
+    for (const selector of EXCLUDED_ANCESTORS) {
+        if (element.closest(selector)) {
+            return true;
+        }
+    }
+    // Check class/id patterns on ancestors
+    let el = element;
+    while (el && el !== document.body) {
+        const classAndId = (el.className || '') + ' ' + (el.id || '');
+        if (NAV_TOC_PATTERNS.test(classAndId)) {
+            return true;
+        }
+        el = el.parentElement;
+    }
+    return false;
+}
+
+// Check if a list item is primarily a navigation link (TOC entry)
+function isNavLink(element) {
+    if (element.tagName !== 'LI') return false;
+    const links = element.querySelectorAll('a');
+    if (links.length === 0) return false;
+    const linkTextLength = Array.from(links).reduce((sum, a) => sum + a.textContent.trim().length, 0);
+    const totalTextLength = element.textContent.trim().length;
+    // If >80% of text is inside links, it's likely a navigation item
+    return totalTextLength > 0 && (linkTextLength / totalTextLength) > 0.8;
+}
+
+// Split long text into sentence-based chunks for BERT processing
+function splitIntoChunks(text, maxLength = 1500) {
+    if (text.length <= maxLength) return [text];
+
+    const chunks = [];
+    // Split on sentence boundaries (period/question/exclamation followed by space or end)
+    const sentences = text.match(/[^.!?]*[.!?]+[\s]*/g) || [text];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+        if (currentChunk.length + sentence.length > maxLength && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+            currentChunk = sentence;
+        } else {
+            currentChunk += sentence;
+        }
+    }
+    if (currentChunk.trim().length > 50) {
+        chunks.push(currentChunk.trim());
+    }
+
+    return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
+}
+
 // Extract text from page
 function extractPageText() {
     // Get main content area (try common selectors)
@@ -26,23 +189,51 @@ function extractPageText() {
         contentElement = document.body;
     }
     
-    // Extract text from paragraphs
-    const paragraphs = contentElement.querySelectorAll('p, li, div.clause, div.section');
+    // Expanded selectors to capture more clause structures
+    const paragraphs = contentElement.querySelectorAll('p, li, dd, blockquote, td, div.clause, div.section, section > div, article > div');
     const clauses = [];
     const seenTexts = new Set(); // Track seen text to avoid duplicates
     
     paragraphs.forEach(p => {
+        // Skip elements in navigation/TOC/sidebar containers
+        if (isInExcludedContainer(p)) return;
+
+        // Skip list items that are primarily navigation links
+        if (isNavLink(p)) return;
+
+        // Privacy: skip form elements and user-specific content areas
+        if (isUserContentArea(p)) return;
+
         const text = p.textContent.trim();
-        // Filter: minimum 50 chars, maximum 1500 chars (avoid entire sections)
-        if (text.length > 50 && text.length < 1500) {
-            // Skip if we've already seen this exact text (prevents duplicates from nested elements)
-            if (seenTexts.has(text)) {
-                return;
+
+        // Filter: minimum 50 chars, maximum 5000 chars (raised to capture long legal clauses)
+        if (text.length < 50 || text.length > 5000) return;
+
+        // Substring-based deduplication: skip if this text is contained in or contains an existing entry
+        let isDuplicate = false;
+        for (const seen of seenTexts) {
+            if (seen === text || seen.includes(text) || text.includes(seen)) {
+                isDuplicate = true;
+                break;
             }
-            
-            seenTexts.add(text);
+        }
+        if (isDuplicate) return;
+
+        seenTexts.add(text);
+
+        // Split long clauses into BERT-friendly chunks while keeping element reference
+        // Privacy: redact any PII before storing text for API transmission
+        if (text.length > 1500) {
+            const chunks = splitIntoChunks(text);
+            for (const chunk of chunks) {
+                clauses.push({
+                    text: redactPII(chunk),
+                    element: p
+                });
+            }
+        } else {
             clauses.push({
-                text: text,
+                text: redactPII(text),
                 element: p
             });
         }
@@ -53,78 +244,78 @@ function extractPageText() {
     return clauses;
 }
 
-// Send clauses to API for classification (with chunking for large batches)
+// Send clauses to API for classification (routed through background.js queue)
 async function classifyClauses(clauses) {
+    // Security: verify API URL is local-only before sending any data
+    if (!isApiUrlSafe(API_URL)) {
+        console.error('Security: API URL is not a local address. Blocking data transmission.');
+        showError('Security error: Data can only be sent to a local API server.');
+        return null;
+    }
+
     try {
         const clauseTexts = clauses.map(c => c.text);
-        
-        // If too many clauses, process in chunks to avoid timeout
-        const CHUNK_SIZE = 5; // Process 5 clauses at a time (reduced for slower inference)
+
+        // Process in chunks to show progress and avoid large payloads
+        const CHUNK_SIZE = 15;
         const results = [];
-        
+
         if (clauseTexts.length > CHUNK_SIZE) {
             console.log(`Processing ${clauseTexts.length} clauses in chunks of ${CHUNK_SIZE}...`);
-            
+
             for (let i = 0; i < clauseTexts.length; i += CHUNK_SIZE) {
                 const chunk = clauseTexts.slice(i, i + CHUNK_SIZE);
                 console.log(`Processing chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(clauseTexts.length/CHUNK_SIZE)}...`);
-                
+
                 // Update loading message
                 updateLoadingMessage(`Analyzing clauses ${i + 1}-${Math.min(i + CHUNK_SIZE, clauseTexts.length)} of ${clauseTexts.length}...`);
-                
-                const response = await fetch(`${API_URL}/classify-batch-with-attention`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        clauses: chunk
-                    }),
-                    signal: AbortSignal.timeout(60000) // 60 second timeout per chunk (increased)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+
+                const chunkResults = await sendToQueue(chunk);
+                if (!chunkResults) {
+                    throw new Error('Classification failed for chunk');
                 }
-                
-                const chunkData = await response.json();
-                // API returns {status: "success", data: {results: [...]}}
-                const chunkResults = chunkData.data ? chunkData.data.results : chunkData.results;
                 results.push(...chunkResults);
             }
-            
+
             return results;
         } else {
             // Small batch, process all at once
-            const response = await fetch(`${API_URL}/classify-batch-with-attention`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    clauses: clauseTexts
-                }),
-                signal: AbortSignal.timeout(60000) // 60 second timeout
-            });
-            
-            if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
+            const batchResults = await sendToQueue(clauseTexts);
+            if (!batchResults) {
+                throw new Error('Classification failed');
             }
-            
-            const responseData = await response.json();
-            // API returns {status: "success", data: {results: [...]}}
-            return responseData.data ? responseData.data.results : responseData.results;
+            return batchResults;
         }
-        
+
     } catch (error) {
         console.error('Classification error:', error);
-        if (error.name === 'TimeoutError') {
-            showError('Request timed out. The page may have too many clauses. Try a simpler ToS page.');
-        } else if (error.message.includes('Failed to fetch')) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('Cannot connect')) {
             showError('Cannot connect to API. Make sure the server is running at localhost:8000');
+        } else {
+            showError('Classification failed: ' + error.message);
         }
         return null;
     }
+}
+
+// Send a batch of clauses to the background.js batch aggregator
+function sendToQueue(clauseTexts) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+            { action: 'classifyBatch', apiUrl: API_URL, clauses: clauseTexts },
+            (response) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                if (response && response.success) {
+                    resolve(response.results);
+                } else {
+                    reject(new Error(response ? response.error : 'No response from background'));
+                }
+            }
+        );
+    });
 }
 
 // Update loading message
@@ -233,10 +424,10 @@ function highlightClauses(clauses, classifications, appendMode = false) {
         analysisResults.classifications.push(...classifications);
     }
     
-    // Send to background script
+    // Send to background script (privacy: only store metadata, not raw clause text)
     chrome.runtime.sendMessage({
         action: 'updateResults',
-        results: analysisResults
+        results: sanitizeResultsForStorage(analysisResults)
     });
 }
 
@@ -301,12 +492,12 @@ function showRiskDetails(classification) {
     });
     html += '</div>';
     
-    // XAI Attention Visualization
+    // Attention Visualization
     if (classification.attention_explanation) {
         const attention = classification.attention_explanation;
         
         html += '<div class="attention-section">';
-        html += '<h3>🔍 Why This Was Detected (XAI)</h3>';
+        html += '<h3>🔍 Why This Was Detected</h3>';
         
         // Heatmap visualization
         html += '<div class="attention-heatmap">';
@@ -385,12 +576,13 @@ function showRiskDetails(classification) {
             contentDiv.dataset.fetched = 'loading';
             textEl.innerHTML = '<span class="explanation-loading">Generating explanation<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></span>';
             
-            // Stream explanation
+            // Stream explanation (privacy: redact PII from clause before sending)
             try {
+                const sanitizedClause = redactPII(clause);
                 const response = await fetch(`${API_URL}/explain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clause, risk_type: riskType }),
+                    body: JSON.stringify({ clause: sanitizedClause, risk_type: riskType }),
                     signal: AbortSignal.timeout(60000)
                 });
                 
@@ -490,8 +682,15 @@ function updateBadge(high, medium, low) {
 }
 
 // Main analysis function with progressive loading
-async function analyzeToS() {
+async function analyzeToS(skipLegalCheck = false) {
     console.log('Starting ToS analysis...');
+
+    // Privacy: verify this page is actually a legal document before extracting content
+    // Skip this check when the user manually triggers analysis from the popup
+    if (!skipLegalCheck && !isLikelyLegalPage()) {
+        console.log('Page does not appear to be a legal document. Skipping analysis to protect privacy.');
+        return;
+    }
     
     // Show loading indicator
     showLoadingIndicator();
@@ -629,19 +828,31 @@ function showError(message) {
     }, 5000);
 }
 
-// Auto-run analysis when page loads
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', analyzeToS);
-} else {
-    analyzeToS();
+// Auto-run analysis only on pages whose URL path (not query string) suggests legal content
+const urlPath = window.location.pathname.toLowerCase();
+const isLegalPath = /(terms|tos|service|privacy|legal|policy|agreement)/i.test(urlPath);
+if (isLegalPath) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', analyzeToS);
+    } else {
+        analyzeToS();
+    }
 }
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'getResults') {
+    if (request.action === 'ping') {
+        sendResponse({ alive: true });
+    } else if (request.action === 'getResults') {
         sendResponse(analysisResults);
     } else if (request.action === 'reanalyze') {
-        analyzeToS();
+        analyzeToS(true);
         sendResponse({ success: true });
+    } else if (request.action === 'queueUpdate') {
+        // Background.js is telling us our queue position
+        const loader = document.getElementById('tos-loader');
+        if (loader && request.position > 0) {
+            updateLoadingMessage(`Waiting in queue (position ${request.position} of ${request.totalQueued})...`);
+        }
     }
 });
